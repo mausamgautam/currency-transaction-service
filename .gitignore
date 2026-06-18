@@ -1,0 +1,32 @@
+# Target build directory (Crucial to block compiled binaries and test reports)
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Log files
+*.log
+
+# In-Memory Database runtime locks
+*.mv.db
+*.trace.db
+
+# OS-specific metadata files
+.DS_Store
+Thumbs.db
+
+# IntelliJ IDEA workspace configuration files
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# Eclipse workspace configuration files
+.metadata/
+.classpath
+.project
+.settings/
+*.launch
+bin/
+
+# Visual Studio Code configuration files
+.vscode/

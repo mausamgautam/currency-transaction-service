@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: currency-transaction-service
+  
+  # In-Memory H2 Database Configuration (Fulfills Plug-and-Play requirement)
+
+  datasource:
+    generate-unique-name: false
+    url: jdbc:h2:mem:wexdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;IFEXISTS=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+    username: sa
+    password: 
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  # JPA/Hibernate Performance and Schema Setup
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    defer-datasource-initialization: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# Third-Party API Configurations
+integrations:
+  us-treasury:
+    base-url: https://api.fiscaldata.treasury.gov/services/api/fiscal_service
+    endpoint: /v1/accounting/od/rates_of_exchange
