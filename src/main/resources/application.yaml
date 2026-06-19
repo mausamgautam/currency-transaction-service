@@ -9,7 +9,7 @@ spring:
 
   datasource:
     generate-unique-name: false
-    url: jdbc:h2:mem:wexdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;IFEXISTS=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+    url: jdbc:h2:mem:transactionsdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;IFEXISTS=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
     username: sa
     password: 
   h2:
