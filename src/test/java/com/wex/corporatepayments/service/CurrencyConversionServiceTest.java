@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import com.wex.corporatepayments.client.FiscalDataClient;
 import com.wex.corporatepayments.dto.ExchangeRateResponse;
 import com.wex.corporatepayments.dto.ExchangeRateResponse.ExchangeRateRecord;
+import com.wex.corporatepayments.exception.CurrencyRateUnavailableException;
 
 class CurrencyConversionServiceTest {
 
@@ -86,7 +87,43 @@ class CurrencyConversionServiceTest {
         when(fiscalDataClient.fetchExchangeRates(currency, purchaseDate)).thenReturn(response);
 
         // Act & Assert
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> 
+        CurrencyRateUnavailableException exception = assertThrows(CurrencyRateUnavailableException.class, () -> 
+                conversionService.calculateConversion(amountUsd, purchaseDate, currency)
+        );
+
+        assertTrue(exception.getMessage().contains("No currency conversion rate is available within 6 months"));
+    }
+
+    @Test
+    void calculateConversion_ShouldThrowException_WhenResponseIsEmpty() {
+        // Arrange
+        LocalDate purchaseDate = LocalDate.of(2026, 6, 18);
+        BigDecimal amountUsd = new BigDecimal("100.00");
+        String currency = "Canada-Dollar";
+
+        ExchangeRateResponse response = new ExchangeRateResponse(List.of());
+
+        when(fiscalDataClient.fetchExchangeRates(currency, purchaseDate)).thenReturn(response);
+
+        // Act & Assert
+        CurrencyRateUnavailableException exception = assertThrows(CurrencyRateUnavailableException.class, () -> 
+                conversionService.calculateConversion(amountUsd, purchaseDate, currency)
+        );
+
+        assertTrue(exception.getMessage().contains("No currency conversion rate is available within 6 months"));
+    }
+
+    @Test
+    void calculateConversion_ShouldThrowException_WhenResponseIsNull() {
+        // Arrange
+        LocalDate purchaseDate = LocalDate.of(2026, 6, 18);
+        BigDecimal amountUsd = new BigDecimal("100.00");
+        String currency = "Canada-Dollar";
+
+        when(fiscalDataClient.fetchExchangeRates(currency, purchaseDate)).thenReturn(null);
+
+        // Act & Assert
+        CurrencyRateUnavailableException exception = assertThrows(CurrencyRateUnavailableException.class, () -> 
                 conversionService.calculateConversion(amountUsd, purchaseDate, currency)
         );
 

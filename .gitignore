@@ -30,3 +30,6 @@ bin/
 
 # Visual Studio Code configuration files
 .vscode/
+
+# Local AI Planning & Walkthrough Specs
+specs/

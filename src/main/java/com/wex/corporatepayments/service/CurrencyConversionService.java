@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import com.wex.corporatepayments.client.FiscalDataClient;
 import com.wex.corporatepayments.dto.ExchangeRateResponse;
 import com.wex.corporatepayments.dto.ExchangeRateResponse.ExchangeRateRecord;
+import com.wex.corporatepayments.exception.CurrencyRateUnavailableException;
 
 @Service
 public class CurrencyConversionService {
@@ -24,7 +25,7 @@ public class CurrencyConversionService {
         ExchangeRateResponse response = fiscalDataClient.fetchExchangeRates(targetCurrency, purchaseDate);
 
         if (response == null || response.data() == null || response.data().isEmpty()) {
-            throw new IllegalArgumentException("No currency conversion rate is available within 6 months equal to or before the purchase date.");
+            throw new CurrencyRateUnavailableException("No currency conversion rate is available within 6 months equal to or before the purchase date.");
         }
 
         // 2. Extract the closest applicable rate (since we sorted descending by record_date, the first element is closest)
@@ -33,7 +34,7 @@ public class CurrencyConversionService {
         
         // 3. Strict defensive check: Enforce the 6-month threshold constraint
         if (rateDate.isBefore(purchaseDate.minusMonths(6))) {
-            throw new IllegalArgumentException("No currency conversion rate is available within 6 months equal to or before the purchase date.");
+            throw new CurrencyRateUnavailableException("No currency conversion rate is available within 6 months equal to or before the purchase date.");
         }
 
         BigDecimal exchangeRate = new BigDecimal(closestRecord.exchangeRate());

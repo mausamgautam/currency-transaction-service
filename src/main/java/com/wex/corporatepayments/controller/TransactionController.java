@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.wex.corporatepayments.dto.ConvertedTransactionResponse;
 import com.wex.corporatepayments.dto.TransactionRequest;
+import com.wex.corporatepayments.exception.TransactionNotFoundException;
 import com.wex.corporatepayments.model.PurchaseTransaction;
 import com.wex.corporatepayments.repository.PurchaseTransactionRepository;
 import com.wex.corporatepayments.service.CurrencyConversionService;
@@ -58,7 +59,7 @@ public class TransactionController {
 
     // 1. Fetch transaction from database, throwing a 404 if not found
     PurchaseTransaction transaction = repository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("Transaction not found with ID: " + id));
+            .orElseThrow(() -> new TransactionNotFoundException("Transaction not found with ID: " + id));
 
     // 2. Compute the multi-currency conversion details via the service layer
     CurrencyConversionService.ConvertedAmountDetails details = conversionService.calculateConversion(
