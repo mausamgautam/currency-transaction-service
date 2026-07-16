@@ -1,6 +1,5 @@
 # Corporate Transactions & Multi-Currency Conversion Service
 
-
 A production-ready, highly portable Spring Boot 3.x microservice built to ingest, persist, and retrieve corporate purchase transactions with automated multi-currency conversion capabilities powered by the US Treasury Reporting Rates of Exchange API.
 
 ---
