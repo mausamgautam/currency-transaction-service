@@ -2,49 +2,48 @@
 
 A production-ready, highly portable Spring Boot 3.x microservice built to ingest, persist, and retrieve corporate purchase transactions with automated multi-currency conversion capabilities powered by the US Treasury Reporting Rates of Exchange API.
 
-## Requirements
-Requirement #1: Store a Purchase Transaction
-Your application must be able to accept and store (i.e., persist) a purchase transaction with a description, transaction
-date, and a purchase amount in United States dollars. When the transaction is stored, it will be assigned a unique
-identifier.
-Field requirements
+---
 
-● Description: must not exceed 50 characters
-● Transaction date: must be a valid date format
-● Purchase amount: must be a valid positive amount rounded to the nearest cent
-● Unique identifier: must uniquely identify the purchase
+## 📋 Table of Contents
+1. [Requirements Mapping](#-requirements-mapping)
+2. [Architectural Highlights & Design DNA](#️-architectural-highlights--design-dna)
+3. [End-to-End Execution Flow](#-end-to-end-execution-flow)
+4. [Component & Code Walkthrough](#-component--code-walkthrough)
+5. [Prerequisites & Local Environment](#️-prerequisites--local-environment)
+6. [Getting Started (Build & Run)](#-getting-started-build--run)
+7. [Testing Scope & Coverage (Jacoco)](#-testing-scope--coverage-jacoco)
+8. [Interview Demo Playbook](#-interview-demo-playbook)
 
+---
 
+## 📋 Requirements Mapping
 
-Requirement #2: Retrieve a Purchase Transaction in a Specified Country’s Currency
-Based upon purchase transactions previously submitted and stored, your application must provide a way to retrieve the
-stored purchase transactions converted to currencies supported by the Treasury Reporting Rates of Exchange API based
-upon the exchange rate active for the date of the purchase.
-https://fiscaldata.treasury.gov/datasets/treasury-reporting-rates-exchange/treasury-reporting-rates-of-exchange
-The retrieved purchase should include the identifier, the description, the transaction date, the original US dollar purchase
-amount, the exchange rate used, and the converted amount based upon the specified currency’s exchange rate for the
-date of the purchase.
+This microservice satisfies the business requirements with the following architectural components:
 
-Currency conversion requirements
-When converting between currencies, you do not need an exact date match, but must use a currency conversion
-rate less than or equal to the purchase date from within the last 6 months.
-If no currency conversion rate is available within 6 months equal to or before the purchase date, an error should
-be returned stating the purchase cannot be converted to the target currency.
-The converted purchase amount to the target currency should be rounded to two decimal places (i.e., cent).
+### Requirement #1: Store a Purchase Transaction
+* **Rule:** Accept and store a purchase transaction with a description (max 50 chars), transaction date, and positive USD amount (rounded to the nearest cent). Assign a unique UUID identifier.
+* **Implementation:** 
+  * **HTTP Endpoint:** `POST /api/v1/transactions` mapped in [TransactionController.java](src/main/java/com/wex/corporatepayments/controller/TransactionController.java).
+  * **Validation:** Enforced using Spring Validation (`@Valid` with `@Size`, `@NotNull`, and `@DecimalMin` annotations) in [TransactionRequest.java](src/main/java/com/wex/corporatepayments/dto/TransactionRequest.java) and [PurchaseTransaction.java](src/main/java/com/wex/corporatepayments/model/PurchaseTransaction.java).
+  * **Persistence:** Saved automatically to an embedded H2 database using Spring Data JPA.
 
+### Requirement #2: Retrieve & Convert to Target Currency
+* **Rule:** Retrieve a transaction converted to a target currency using the exchange rate active on or closest preceding the purchase date, up to a maximum historical limit of 6 months. If no rate exists, return an error. Round converted amounts to 2 decimal places.
+* **Implementation:**
+  * **HTTP Endpoint:** `GET /api/v1/transactions/{id}?targetCurrency={currency}` mapped in [TransactionController.java](src/main/java/com/wex/corporatepayments/controller/TransactionController.java).
+  * **API Client:** [FiscalDataClient.java](src/main/java/com/wex/corporatepayments/client/FiscalDataClient.java) queries the US Treasury API with dynamically calculated start date parameters and server-side filtering.
+  * **Domain Validation:** [CurrencyConversionService.java](src/main/java/com/wex/corporatepayments/service/CurrencyConversionService.java) evaluates the 6-month threshold limit and performs the multi-currency calculation using `BigDecimal` scale alignments.
 
 ---
 
 ## 🏛️ Architectural Highlights & Design DNA
-
-This service was designed from the ground up using clean architecture and domain-driven design patterns, prioritizing financial precision, high performance, and robust error safety:
 
 * **Financial Precision-First:** To prevent floating-point rounding issues common to binary representations (`double` or `float`), all transaction amounts and currency exchange operations strictly utilize `java.math.BigDecimal` with explicit scale alignments (`2` decimal places) and clean `RoundingMode.HALF_UP` configurations.
 * **Separation of Concerns:** Implements a clean Controller-Service-Client architecture:
     * `controller`: Encapsulates REST API ingress boundaries, Swagger/OpenAPI exposure, request validation, and global HTTP exception mappings.
     * `service`: Houses core business rule validation (such as enforcing the 6-month historical rate boundary constraint).
     * `client`: Abstracts downstream gateway calls using Spring Boot 3's modern, fluent `RestClient`.
-* **API Gateway Throughput Optimization:** Rather than downloading large multi-megabyte historical XML/JSON lists from the federal gateway, the `FiscalDataClient` applies aggressive server-side filtering (`?filter=...`) to download *only* the specific data bracket needed for the target currency and transaction window.
+* **API Gateway Throughput Optimization:** Rather than downloading large multi-megabyte historical XML/JSON lists from the federal gateway, the `FiscalDataClient` applies server-side filtering (`?filter=...`) to download *only* the specific data bracket needed for the target currency and transaction window.
 * **Zero-Dependency Portability:** Uses an embedded, in-memory H2 database managed via Spring Data JPA. The application requires zero local database setups, external credentials, or container provisioning to run out of the box.
 
 ---
@@ -107,6 +106,36 @@ sequenceDiagram
 
 ---
 
+## 🔍 Component & Code Walkthrough
+
+### 1. Persistent Domain Model
+* **File:** [PurchaseTransaction.java](src/main/java/com/wex/corporatepayments/model/PurchaseTransaction.java)
+* **Design Decision:** Utilizes `@GeneratedValue(strategy = GenerationType.UUID)` to guarantee universally unique identifier assignments. The constructor maps incoming parameters and applies `setScale(2, HALF_UP)` defensively on initialization to ensure financial database integrity from the start.
+
+### 2. Controller & REST Boundary
+* **File:** [TransactionController.java](src/main/java/com/wex/corporatepayments/controller/TransactionController.java)
+* **Design Decision:** Leverages standard `@RestController` patterns. Maps errors cleanly (like 404s and validation problems) to custom exceptions handled globally by [GlobalExceptionHandler.java](src/main/java/com/wex/corporatepayments/controller/GlobalExceptionHandler.java) returning descriptive error payloads.
+
+### 3. Downstream API Client
+* **File:** [FiscalDataClient.java](src/main/java/com/wex/corporatepayments/client/FiscalDataClient.java)
+* **Design Decision:** Instead of pulling all records, this client queries a 12-month historical window:
+  ```java
+  LocalDate calculationBufferStart = purchaseDate.minusMonths(12);
+  ```
+  It queries the US Treasury endpoint with server-side filters sorted descending by date (`sort=-record_date`), restricting page sizes to optimize performance.
+
+### 4. Calculation Service
+* **File:** [CurrencyConversionService.java](src/main/java/com/wex/corporatepayments/service/CurrencyConversionService.java)
+* **Design Decision:** Validates whether the fetched rate falls within the strict 6-month historical limit relative to the purchase date:
+  ```java
+  if (rateDate.isBefore(purchaseDate.minusMonths(6))) {
+      throw new CurrencyRateUnavailableException("No currency conversion rate is available within 6 months...");
+  }
+  ```
+  Applies exact math conversion on the rate using `BigDecimal.multiply(...)` and rounds cleanly.
+
+---
+
 ## 🛠️ Prerequisites & Local Environment
 
 * **Java:** JDK 17 or 21
@@ -156,3 +185,43 @@ The test coverage reports are automatically generated by the Jacoco plugin and c
 | `model` | **100%** | **100%** | Entity model constructs and scale alignments |
 | `dto` | **100%** | n/a | Request and Response JSON serialization mappings |
 | `exception` | **100%** | n/a | Business validation exceptions |
+
+---
+
+## 🎯 Interview Demo Playbook
+
+During the interview, run through this script to present your microservice:
+
+### Step 1: Initialize a USD Transaction
+Use the Swagger UI page or run a `curl` request to store a new USD transaction:
+```bash
+curl -X POST http://localhost:8080/api/v1/transactions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Premium Office Chair",
+    "transactionDate": "2023-10-15",
+    "purchaseAmount": 299.99
+  }'
+```
+* **Takeaways to highlight:**
+  1. Instant UUID generation.
+  2. Input data validation rules (e.g. try passing a description longer than 50 characters to showcase `400 Bad Request` with custom error payloads).
+
+### Step 2: Retrieve with Currency Conversion (Successful Case)
+Query the transaction and request conversion to `Canada-Dollar` (which has valid rates in October 2023):
+```bash
+curl -X GET "http://localhost:8080/api/v1/transactions/{UUID}?targetCurrency=Canada-Dollar"
+```
+* **Takeaways to highlight:**
+  1. The API fetches real-world rates from the US Treasury dynamically.
+  2. The database stores the original USD amount, and conversion details are computed dynamically.
+  3. The mathematical precision is rounded to exactly two decimal places.
+
+### Step 3: Trigger historical constraint validation (Failure Case)
+Try converting the transaction to a currency that does not have records within 6 months preceding the purchase date:
+```bash
+curl -X GET "http://localhost:8080/api/v1/transactions/{UUID}?targetCurrency=NonExistent-Currency"
+```
+* **Takeaways to highlight:**
+  1. The service safely returns a standard `400 Bad Request` with a meaningful error message: `"No currency conversion rate is available within 6 months..."`.
+  2. Demonstrates defensive programming practices in high-precision business layers.
