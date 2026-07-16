@@ -28,7 +28,7 @@ This microservice satisfies the business requirements with the following archite
   * **Persistence:** Saved automatically to an embedded H2 database using Spring Data JPA.
 
 ### Requirement #2: Retrieve & Convert to Target Currency
-* **Rule:** Retrieve a transaction converted to a target currency using the exchange rate active on or closest preceding the purchase date, up to a maximum historical limit of 6 months. If no rate exists, return an error. Round converted amounts to 2 decimal places.
+* **Rule:** Retrieve a transaction converted to a target currency using the [US Treasury Reporting Rates of Exchange API](https://fiscaldata.treasury.gov/datasets/treasury-reporting-rates-exchange/treasury-reporting-rates-of-exchange) based upon the exchange rate active for the date of the purchase (or the closest preceding exchange rate, up to a maximum historical limit of 6 months). If no rate exists within this 6-month window, return an error. Round converted amounts to 2 decimal places.
 * **Implementation:**
   * **HTTP Endpoint:** `GET /api/v1/transactions/{id}?targetCurrency={currency}` mapped in [TransactionController.java](src/main/java/com/wex/corporatepayments/controller/TransactionController.java).
   * **API Client:** [FiscalDataClient.java](src/main/java/com/wex/corporatepayments/client/FiscalDataClient.java) queries the US Treasury API with dynamically calculated start date parameters and server-side filtering.
@@ -159,6 +159,7 @@ Once started:
 * **Interactive UI Playground:** Access the Swagger UI dashboard at [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html) to interact with and test all endpoint requests directly.
 * **OpenAPI Specs:** View the generated raw JSON OpenAPI specifications at [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs).
 * **Database Console:** Access the H2 in-memory database explorer at [http://localhost:8080/h2-console](http://localhost:8080/h2-console) (JDBC URL: `jdbc:h2:mem:transactionsdb`, Username: `sa`, Password: `[blank]`).
+* **US Treasury Rates API Documentation:** View reference materials and details at [Treasury Reporting Rates of Exchange dataset API](https://fiscaldata.treasury.gov/datasets/treasury-reporting-rates-exchange/treasury-reporting-rates-of-exchange).
 
 ---
 
