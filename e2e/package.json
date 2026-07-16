@@ -1,0 +1,12 @@
+{
+  "name": "currency-transaction-service-e2e",
+  "version": "1.0.0",
+  "description": "Playwright end-to-end tests for Currency Transaction Service",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
